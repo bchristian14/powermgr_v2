@@ -38,6 +38,6 @@ TESLA_CALLBACK = "https://auth.tesla.com/void/callback"
 TESLA_API_URL = "https://owners-api.tesla.com/"
 TESLA_TOKEN_FILE = "/root/tesla.token"
 TESLA_PRODUCTS_URL = "https://owner-api.teslamotors.com/api/1/products"
-TESLA_ENERGY_SITE_URL = "https://owner-api.teslamotors.com/api/1/energy_sites/{TESLA_ENERGY_SITE_ID}/site_info"
-TESLA_OPERATIONS_URL = "https://owner-api.teslamotors.com/api/1/energy_sites/{TESLA_ENERGY_SITE_ID}/operation"
+TESLA_ENERGY_SITE_URL = f"https://owner-api.teslamotors.com/api/1/energy_sites/{TESLA_ENERGY_SITE_ID}/site_info"
+TESLA_OPERATIONS_URL = f"https://owner-api.teslamotors.com/api/1/energy_sites/{TESLA_ENERGY_SITE_ID}/operation"
 
