@@ -1,5 +1,5 @@
 import json, logging, requests, smtplib, ssl
-from credentials import honeywell_pwrd, honeywell_user, gmail_user, gmail_pwrd
+from credentials import honeywell_pwrd, honeywell_user, gmail_user, gmail_pwrd, openweather_key
 from config import *
 from email.message import EmailMessage
 
@@ -61,9 +61,20 @@ def main():
         logger.info(f'Current Charge: {perc_charged}')
     except Exception as e:
         logger.error(f"Precool Check failed to get battery status: {e}")
+    openweather_url = f"https://api.openweathermap.org/data/2.5/onecall?lat={LAT}&lon={LON}&exclude=current,minutely,hourly,alerts&appid={openweather_key}&units=imperial"
+    try:
+        r = requests.get(openweather_url)
+        forecast = r.json()["daily"][0]["temp"]["max"]
+    except Exception as e:
+        logger.errog(f'Failed to get weather data from: {r.url}')
+    precool_reason = ''
+    if forecast >= FORECAST_THRESHOLD:
+        precool_reason += f"Forecasted high of {forecast} over {FORECAST_THRESHOLD}.\n"
     if perc_charged <= PRECOOL_THRESHOLD:
-        logger.info(f'Attempting precool - setting thermostats to {PRECOOL_TEMP} degrees')
-        msg.set_content(f"\n{perc_charged}% below threshold of {PRECOOL_THRESHOLD}; precoooling to {PRECOOL_TEMP} degrees")
+        precool_reason += f"Battery level of {perc_charged} below {PRECOOL_THRESHOLD}%.\n"
+    if precool_reason:
+        logger.info(f'{precool_reason}Attempting precool - setting thermostats to {PRECOOL_TEMP} degrees')
+        msg.set_content(f"\n{precool_reason} Attempting to precoooling to {PRECOOL_TEMP} degrees.")
         with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
             gmail.login(gmail_user,gmail_pwrd)
             gmail.send_message(msg)
@@ -86,5 +97,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
