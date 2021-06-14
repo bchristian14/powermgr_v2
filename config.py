@@ -17,6 +17,9 @@ BATTERY_STATUS_FILE = '/root/battery.status'
 # pre_cool.py - set thermostats to PRECOOL_TEMP if battery percent below PRECOOL_THRESHOLD
 PRECOOL_TEMP = 67
 PRECOOL_THRESHOLD = 90
+LAT = 40.71
+LON = -74.00
+FORECAST_THRESHOLD = 105
 
 # peak_manager.py - set powerwall mode to self_consumption during peak, and backup during off-peak
 SUMMER_FIRST_MONTH = 5
