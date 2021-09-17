@@ -14,6 +14,8 @@ msg["From"] = gmail_user
 msg["Subject"] = "Precool Notice"
 msg["To"] = ', '.join(NOTIFICATION_EMAILS)
 
+message_content = ''
+
 
 def get_setpoint(therm_session,device):
     THERMOSTAT_OPERATION_URL = f"{THERMOSTAT_BASE_URL}/Device/CheckDataSession/{device}"
@@ -23,6 +25,7 @@ def get_setpoint(therm_session,device):
 
 
 def set_setpoint(therm_session,device,new_temp):
+    global message_content
     data = {'SystemSwitch': None,
             'HeatSetpoint': None,
             'CoolSetpoint': new_temp,
@@ -39,16 +42,14 @@ def set_setpoint(therm_session,device,new_temp):
         logger.debug(resp.json())
         new_setpoint = get_setpoint(therm_session,device)
         logger.info(f"Device: {device} set to {new_setpoint} degrees")
-        msg.set_content(f"Device: {device} set to {new_setpoint} degrees")
+        message_content += f"\nDevice: {device} set to {new_setpoint} degrees"
     except Exception as e:
         logger.error(f"Exception setting themostat {device}: {e}")
-        msg.set_content(f"Exception setting themostat {device}: {e}")
-    with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
-        gmail.login(gmail_user,gmail_pwrd)
-        gmail.send_message(msg)
+        message_content += f"\nException setting themostat {device}: {e}"
 
 
 def main():
+    global message_content
     logger.debug("opening token file")
     try:
         with open(TESLA_TOKEN_FILE, "r") as f:
@@ -73,11 +74,8 @@ def main():
     if perc_charged <= PRECOOL_THRESHOLD:
         precool_reason += f"Battery level of {perc_charged} below {PRECOOL_THRESHOLD}%.\n"
     if precool_reason:
-        logger.info(f'{precool_reason}Attempting precool - setting thermostats to {PRECOOL_TEMP} degrees')
-        msg.set_content(f"\n{precool_reason} Attempting to precoooling to {PRECOOL_TEMP} degrees.")
-        with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
-            gmail.login(gmail_user,gmail_pwrd)
-            gmail.send_message(msg)
+        logger.info(f'{precool_reason}Attempting precool to {PRECOOL_TEMP} degrees')
+        message_content += f"\n{precool_reason} Attempting precoool to {PRECOOL_TEMP} degrees."
         params = {'UserName': honeywell_user,
                   'Password': honeywell_pwrd,
                   'RememberMe': 'false',
@@ -93,6 +91,10 @@ def main():
                 set_setpoint(therm_session,device,PRECOOL_TEMP)
         except Exception as e:
             logger.error(f'Failed to adjust thermostats: {e}')
+        msg.set_content(message_content)
+        with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
+            gmail.login(gmail_user,gmail_pwrd)
+            gmail.send_message(msg)
 
 
 if __name__ == "__main__":
