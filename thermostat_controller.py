@@ -14,6 +14,7 @@ msg["From"] = gmail_user
 msg["Subject"] = "Powerall Battery Alert"
 msg["To"] = ', '.join(NOTIFICATION_EMAILS)
 
+message_content = ''
 
 def get_setpoint(therm_session,device):
     THERMOSTAT_OPERATION_URL = f"{THERMOSTAT_BASE_URL}/Device/CheckDataSession/{device}"
@@ -23,11 +24,12 @@ def get_setpoint(therm_session,device):
 
 
 def set_setpoint(therm_session,device,temp_change):
+    global message_content
     data = {'SystemSwitch': None,
             'HeatSetpoint': None,
             'CoolSetpoint': int(get_setpoint(therm_session,device))+temp_change,
             'HeatNextPeriod': None,
-            'CoolNextPeriod': 80,
+            'CoolNextPeriod': 81,
             'StatusHeat': None,
             'StatusCool': 1,
             'DeviceID': device,
@@ -39,16 +41,14 @@ def set_setpoint(therm_session,device,temp_change):
         logger.debug(resp.json())
         new_setpoint = get_setpoint(therm_session,device)
         logger.info(f"Device: {device} set to {new_setpoint} degrees")
-        msg.set_content(f"Device: {device} set to {new_setpoint} degrees")
+        message_content += f"Device: {device} set to {new_setpoint} degrees"
     except Exception as e:
         logger.error(f"Exception setting themostat {device}: {e}")
-        msg.set_content(f"Exception setting themostat {device}: {e}")
-    with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
-        gmail.login(gmail_user,gmail_pwrd)
-        gmail.send_message(msg)
+        message_content += f"Exception setting themostat {device}: {e}"
 
 
 def main():
+    global message_content
     logger.debug("opening token file")
     try:
         with open(TESLA_TOKEN_FILE, "r") as f:
@@ -57,6 +57,7 @@ def main():
         tesla_session = requests.Session()
         tesla_headers = {"Authorization": f"Bearer {token['access_token']}"}
         resp = tesla_session.get(TESLA_PRODUCTS_URL,headers=tesla_headers)
+        resp.raise_for_status()
         perc_charged = int(resp.json()['response'][0]['percentage_charged'])
         logger.info(f'Current Charge: {perc_charged}')
         with open(BATTERY_STATUS_FILE) as f:
@@ -78,15 +79,12 @@ def main():
         new_state = 3
     if temp_increase:
         logger.info(f'Attempting to increasing setpoints by {temp_increase} degrees')
-        msg.set_content(f"\n{perc_charged}% remaining\nAttempting to adjust thermostats by {temp_increase} degrees")
-        with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
-            gmail.login(gmail_user,gmail_pwrd)
-            gmail.send_message(msg)
+        message_content += f"\n{perc_charged}% remaining\nAttempting to adjust thermostats by {temp_increase} degrees"
         params = {'UserName': honeywell_user,
                   'Password': honeywell_pwrd,
-    		  'RememberMe': 'false',
-      		  'timeOffset': 0
-      		 }
+                  'RememberMe': 'false',
+                  'timeOffset': 0
+                 }
         try:
             therm_session = requests.Session()
             therm_session.headers['X-Requested-With'] = 'XMLHttpRequest'
@@ -99,6 +97,10 @@ def main():
                 _ = f.write(str(new_state))
         except Exception as e:
             logger.error(f'Failed to adjust thermostats: {e}')
+        msg.set_content(message_content)
+        with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
+            gmail.login(gmail_user,gmail_pwrd)
+            gmail.send_message(msg)
 
 
 if __name__ == "__main__":
