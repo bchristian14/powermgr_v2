@@ -10,6 +10,7 @@ logger.setLevel(logging.INFO)
 
 
 current = dt.now()
+#current = dt.fromisoformat("2021-09-17T13:59:01")
 
 msg = EmailMessage()
 msg["Subject"] = "Powerwall State Change Failure"
@@ -27,42 +28,49 @@ def main():
         tesla_session = requests.Session()
         tesla_headers = {"Authorization": f"Bearer {token['access_token']}"}
         resp = tesla_session.get(TESLA_ENERGY_SITE_URL,headers=tesla_headers)
-        cur_mode = resp.json()['response']['default_real_mode']
-        logger.info(f"Current Mode: {cur_mode}")
+        resp.raise_for_status()
+        cur_reserve = resp.json()['response']['backup_reserve_percent']
+        logger.info(f"Current Reserve Set: {cur_reserve}")
         season = "summer" if (
             SUMMER_FIRST_MONTH <= current.month <= SUMMER_LAST_MONTH
             ) else "winter"
-        if is_peak(season):
+        if current.strftime('%Y-%m-%d') in HOLIDAYS:
+            logger.info("Today is a pricing holiday. No Action")
+        elif is_peak(season):
             logger.info(f"Pricing: {season.upper()} ON-PEAK")
-            if cur_mode == "self_consumption":
-                logger.info("Mode already set to self-consumption.")
+            if cur_reserve == 0:
+                logger.info("Reserve already set to 0%.")
             else:
-                logger.info("Changing to self-consumption.")
-                params = {"default_real_mode": "self_consumption"}
-                resp = tesla_session.post(TESLA_OPERATIONS_URL,headers=tesla_headers,params=params)
-                resp.raise_for_status()
-                resp = tesla_session.get(TESLA_ENERGY_SITE_URL,headers=tesla_headers)
-                new_mode = resp.json()['response']['default_real_mode']
-                logger.info(f"New Mode: {new_mode}")
+                set_reserve(session=tesla_session,
+                            reserve_percent=float("0.0"),
+                            header=tesla_headers)
         else:
             logger.info(f"Pricing: {season.upper()} OFF-PEAK")
-            if cur_mode == "backup":
-                logger.info("Mode already set to backup.")
+            if cur_reserve == 100:
+                logger.info("Reserve already set to 100%.")
             else:
-                logger.info("Changing to backup.")
-                params = {"default_real_mode": "backup"}
-                resp = tesla_session.post(TESLA_OPERATIONS_URL,headers=tesla_headers,params=params)
-                resp.raise_for_status()
-                resp = tesla_session.get(TESLA_ENERGY_SITE_URL,headers=tesla_headers)
-                new_mode = resp.json()['response']['default_real_mode']
-                logger.info(f"New Mode: {new_mode}")
+                set_reserve(session=tesla_session,
+                            reserve_percent=float("100.0"),
+                            header=tesla_headers)
         logger.info("=====   END   =====")
     except Exception as error:
         logger.exception(error)
-        msg.set_content(f"""\nError setting battery mode. Manual update required!""")
-        with smtplib.SMTP_SSL("smtp.gmail.com", port, context=ssl.create_default_context()) as gmail:
-            gmail.login(guser,gpwd)
+        msg.set_content(f"""\nError setting battery reserve. Manual update required!""")
+        with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
+            gmail.login(gmail_user,gmail_pwrd)
             gmail.send_message(msg)
+
+
+def set_reserve(session, reserve_percent, header):
+    logger.info(f"Changing reserve to {reserve_percent}%")
+    payload = {"backup_reserve_percent": reserve_percent}
+    set_resp = session.post(TESLA_RESERVE_URL,headers=header,json=payload)
+    set_resp.raise_for_status()
+    get_resp = session.get(TESLA_ENERGY_SITE_URL,headers=header)
+    get_resp.raise_for_status()
+    new_reserve = get_resp.json()['response']['backup_reserve_percent']
+    logger.info(f"New Reserve = {new_reserve}%")
+
 
 def is_peak(season):
     if season == "winter": # is it winter
