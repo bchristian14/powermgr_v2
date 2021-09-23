@@ -56,10 +56,13 @@ def main():
         logger.debug("getting Charge level")
         tesla_session = requests.Session()
         tesla_headers = {"Authorization": f"Bearer {token['access_token']}"}
-        resp = tesla_session.get(TESLA_PRODUCTS_URL,headers=tesla_headers)
+        resp = tesla_session.get(TESLA_STATUS_URL,headers=tesla_headers)
         resp.raise_for_status()
-        perc_charged = int(resp.json()['response'][0]['percentage_charged'])
+        perc_charged = int(resp.json()['response']['percentage_charged'])
         logger.info(f'Current Charge: {perc_charged}')
+        grid_power = resp.json()['response']['grid_power']
+        if grid_power > 500:
+            message_content += f"GRID USAGE DETECTED! {grid_power}"
         with open(BATTERY_STATUS_FILE) as f:
             battery_status=int(f.read())
     except Exception as e:
