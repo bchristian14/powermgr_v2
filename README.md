@@ -21,10 +21,10 @@
 * ***README.md*** - this document
 * ***auth_refresh.py*** - examines existing tesla auth token and will refresh the token if under under 15 days remain.
 * ***config.py*** - contains variables to modify for the repo. for example, peak start/end times, API endpoints, notification emails, etc. - at minimum, this file must be updated with your notification emails, tesla energy site ID, and honeywell thermostat IDs
-* ***eod_status.py*** - logs/emails current powerall remaining battery % and operating mode
-* ***peak_manager.py*** - toggles powerwall mode between backup & self_consumption based on peak/offpeak times
+* ***eod_status.py*** - logs/emails current powerall remaining battery %, backup reserve setting, and current battery usage.
+* ***peak_manager.py*** - toggles backup reserve % between 0 and 100% based on configured peak/offpeak times
 * ***precool_check.py*** - checks remaining battery and sets thermostats to configured temperature if below threshold
-* ***thermostat_controller.py*** - checks battery % and increase thermostats by 2 or 4 degress as battery thesholds are crossed.
+* ***thermostat_controller.py*** - checks battery % and increase thermostats by 2 or 4 degress as battery thesholds are crossed. also checks for any unexpected grid usage and sends notification if found.
 
 
 #### Omitted files, but required for operation:
