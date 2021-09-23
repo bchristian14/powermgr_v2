@@ -21,9 +21,9 @@ def main():
         logger.debug("EOD - getting Charge level")
         tesla_session = requests.Session()
         tesla_headers = {"Authorization": f"Bearer {token['access_token']}"}
-        resp = tesla_session.get(TESLA_PRODUCTS_URL,headers=tesla_headers)
-        perc_charged = int(resp.json()['response'][0]['percentage_charged'])
-        battery_power = resp.json()['response'][0]['battery_power']
+        resp = tesla_session.get(TESLA_STATUS_URL,headers=tesla_headers)
+        perc_charged = int(resp.json()['response']['percentage_charged'])
+        battery_power = resp.json()['response']['battery_power']
         reserve_resp = tesla_session.get(TESLA_ENERGY_SITE_URL,headers=tesla_headers)
         reserve = reserve_resp.json()["response"]["backup_reserve_percent"]
         logger.info(f'EOD Charge: {perc_charged}')
@@ -38,18 +38,23 @@ def main():
         gmail.login(gmail_user,gmail_pwrd)
         gmail.send_message(msg)
     try:
-        if battery_power > 1500:
+        if battery_power > 1000:
             logger.warn('Unexpected battery usage detected; rechecking in 5 minutes')
             time.sleep(300)
-            resp = tesla_session.get(TESLA_PRODUCTS_URL,headers=tesla_headers)
-            battery_check = resp.json()['response'][0]['battery_power']
+            resp = tesla_session.get(TESLA_STATUS_URL,headers=tesla_headers)
+            battery_check = resp.json()['response']['battery_power']
             logger.info(f'Battery draw: {battery_check}')
             msg.set_content(f"5-minute follow-up - Battery Draw: {battery_check}")
-            gmail.login(gmail_user,gmail_pwrd)
-            gmail.send_message(msg)
+            with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
+                gmail.login(gmail_user,gmail_pwrd)
+                gmail.send_message(msg)
     except Exception as error:
         logger.exception(error)
         msg.set_content(f"Exception re-setting to backup mode: {error}")
+        with smtplib.SMTP_SSL("smtp.gmail.com", EMAIL_PORT, context=ssl.create_default_context()) as gmail:
+            gmail.login(gmail_user,gmail_pwrd)
+            gmail.send_message(msg)
+
 
 
 if __name__ == '__main__':
