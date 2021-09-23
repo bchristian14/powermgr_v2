@@ -57,8 +57,8 @@ def main():
         logger.debug("getting Charge level")
         tesla_session = requests.Session()
         tesla_headers = {"Authorization": f"Bearer {token['access_token']}"}
-        resp = tesla_session.get(TESLA_PRODUCTS_URL,headers=tesla_headers)
-        perc_charged = int(resp.json()['response'][0]['percentage_charged'])
+        resp = tesla_session.get(TESLA_STATUS_URL,headers=tesla_headers)
+        perc_charged = int(resp.json()['response']['percentage_charged'])
         logger.info(f'Current Charge: {perc_charged}')
     except Exception as e:
         logger.error(f"Precool Check failed to get battery status: {e}")
