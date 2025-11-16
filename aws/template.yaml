@@ -1,0 +1,395 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Power Management System - Intelligent Battery and Thermostat Control
+
+Globals:
+  Function:
+    Timeout: 60
+    Runtime: python3.11
+    MemorySize: 256
+    Environment:
+      Variables:
+        POWERMETRICS_TABLE: !Ref PowerMetricsTable
+        POWERANALYTICS_TABLE: !Ref PowerAnalyticsTable
+        POWERSTATE_TABLE: !Ref PowerStateTable
+        HISTORICAL_DATA_BUCKET: !Ref HistoricalDataBucket
+        PARAMETER_STORE_PREFIX: /powermgr
+    Layers:
+      - !Ref CommonLayer
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name for resource naming
+
+Resources:
+  # ===================================
+  # DynamoDB Tables
+  # ===================================
+
+  PowerMetricsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub PowerMetrics-${Environment}
+      BillingMode: PAY_PER_REQUEST  # On-demand pricing, no provisioned capacity needed
+      AttributeDefinitions:
+        - AttributeName: metric_date
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: metric_date
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  PowerAnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub PowerAnalytics-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: analysis_date
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: analysis_date
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  PowerStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub PowerState-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: state_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: state_key
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===================================
+  # S3 Bucket for Historical Data
+  # ===================================
+
+  HistoricalDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub powermgr-historical-${Environment}-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: STANDARD_IA
+          - Id: TransitionToGlacier
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 365
+                StorageClass: GLACIER
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===================================
+  # Lambda Layers
+  # ===================================
+
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub powermgr-common-${Environment}
+      Description: Common utilities for Power Management System
+      ContentUri: layers/common/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: python3.11
+
+  # ===================================
+  # Lambda Functions
+  # ===================================
+
+  DataCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-DataCollector-${Environment}
+      CodeUri: functions/data_collector/
+      Handler: handler.lambda_handler
+      Description: Collects battery, solar, and grid metrics from Tesla API
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerMetricsTable
+        - S3CrudPolicy:
+            BucketName: !Ref HistoricalDataBucket
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+      Events:
+        # Peak hours - collect every 5 minutes
+        SummerPeakSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/5 14-19 ? 5-10 MON-FRI *)
+            Description: Collect data every 5 min during summer peak hours
+            Enabled: true
+        WinterMorningPeakSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/5 5-8 ? 1-4,11-12 MON-FRI *)
+            Description: Collect data every 5 min during winter morning peak
+            Enabled: true
+        WinterEveningPeakSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/5 17-20 ? 1-4,11-12 MON-FRI *)
+            Description: Collect data every 5 min during winter evening peak
+            Enabled: true
+        # Off-peak - collect every 15 minutes
+        OffPeakSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 * * * ? *)
+            Description: Collect data every 15 min during off-peak hours
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
+  # ===================================
+  # SNS Topic for Notifications
+  # ===================================
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub PowerMgr-Notifications-${Environment}
+      DisplayName: Power Management System Notifications
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===================================
+  # CloudWatch Log Groups
+  # ===================================
+
+  DataCollectorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-DataCollector-${Environment}
+      RetentionInDays: 30
+
+  # ===================================
+  # Athena Resources
+  # ===================================
+
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub powermgr-${Environment}
+      Description: WorkGroup for Power Management queries
+      State: ENABLED
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub s3://${HistoricalDataBucket}/athena-results/
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  AthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub powermgr-athena-results-${Environment}-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldResults
+            Status: Enabled
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: PowerManagement
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===================================
+  # Glue Database and Table for Athena
+  # ===================================
+
+  PowerMgmtDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub powermgmt_${Environment}
+        Description: Power Management historical data
+
+  PowerMetricsGlueTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref PowerMgmtDatabase
+      TableInput:
+        Name: metrics
+        Description: Historical power metrics data
+        TableType: EXTERNAL_TABLE
+        PartitionKeys:
+          - Name: year
+            Type: string
+          - Name: month
+            Type: string
+          - Name: day
+            Type: string
+        StorageDescriptor:
+          Columns:
+            - Name: timestamp
+              Type: string
+            - Name: battery_percentage
+              Type: double
+            - Name: battery_power
+              Type: double
+            - Name: solar_power
+              Type: double
+            - Name: grid_power
+              Type: double
+            - Name: battery_remaining_kwh
+              Type: double
+            - Name: total_pack_energy_kwh
+              Type: double
+            - Name: grid_status
+              Type: string
+            - Name: battery_is_charging
+              Type: boolean
+            - Name: peak_period
+              Type: string
+            - Name: minutes_until_sunset
+              Type: int
+            - Name: minutes_until_peak_end
+              Type: int
+            - Name: solar_output_factor
+              Type: double
+          Location: !Sub s3://${HistoricalDataBucket}/metrics/
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+
+Outputs:
+  PowerMetricsTableName:
+    Description: DynamoDB table for recent power metrics
+    Value: !Ref PowerMetricsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-PowerMetricsTable
+
+  PowerAnalyticsTableName:
+    Description: DynamoDB table for analytics results
+    Value: !Ref PowerAnalyticsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-PowerAnalyticsTable
+
+  PowerStateTableName:
+    Description: DynamoDB table for system state
+    Value: !Ref PowerStateTable
+    Export:
+      Name: !Sub ${AWS::StackName}-PowerStateTable
+
+  HistoricalDataBucketName:
+    Description: S3 bucket for historical data storage
+    Value: !Ref HistoricalDataBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-HistoricalDataBucket
+
+  NotificationTopicArn:
+    Description: SNS topic for notifications
+    Value: !Ref NotificationTopic
+    Export:
+      Name: !Sub ${AWS::StackName}-NotificationTopic
+
+  DataCollectorFunctionArn:
+    Description: ARN of the Data Collector Lambda function
+    Value: !GetAtt DataCollectorFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-DataCollectorFunction
+
+  AthenaWorkGroupName:
+    Description: Athena WorkGroup for queries
+    Value: !Ref AthenaWorkGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-AthenaWorkGroup
+
+  GlueDatabaseName:
+    Description: Glue Database for Athena queries
+    Value: !Ref PowerMgmtDatabase
+    Export:
+      Name: !Sub ${AWS::StackName}-GlueDatabase
