@@ -1,13 +1,13 @@
 """
 Data Collector Lambda Function
-Collects battery, solar, and grid metrics from Tesla API and stores in DynamoDB and S3
+Collects battery, solar, and grid metrics from Tesla API and stores in DynamoDB
+Architecture: Forever-free AWS tier using DynamoDB only (no S3 costs)
 """
 import json
 import logging
 import os
 from datetime import datetime
 from typing import Dict, Any
-import boto3
 
 # Import from Lambda Layer
 from powermgr.config import get_config
@@ -25,21 +25,17 @@ config = None
 tesla_client = None
 metrics_manager = None
 notification_manager = None
-s3_client = None
-historical_bucket = None
 
 
 def init_clients():
     """Initialize clients on cold start"""
-    global config, tesla_client, metrics_manager, notification_manager, s3_client, historical_bucket
+    global config, tesla_client, metrics_manager, notification_manager
 
     if config is None:
         config = get_config()
         tesla_client = TeslaClient(config)
         metrics_manager = MetricsManager()
         notification_manager = NotificationManager(config)
-        s3_client = boto3.client('s3')
-        historical_bucket = os.environ.get('HISTORICAL_DATA_BUCKET')
 
     return config, tesla_client, metrics_manager, notification_manager
 
@@ -191,42 +187,6 @@ def enrich_metrics(raw_metrics: Dict[str, Any], config) -> Dict[str, Any]:
     return enriched
 
 
-def store_in_s3(metrics: Dict[str, Any], bucket: str):
-    """
-    Store metrics in S3 with partitioning by date
-
-    Args:
-        metrics: Metrics dictionary
-        bucket: S3 bucket name
-    """
-    try:
-        timestamp = datetime.fromisoformat(metrics['timestamp'].replace('Z', '+00:00'))
-
-        # Create partition path: year=YYYY/month=MM/day=DD/
-        year = timestamp.strftime('%Y')
-        month = timestamp.strftime('%m')
-        day = timestamp.strftime('%d')
-
-        # Create object key
-        timestamp_str = timestamp.strftime('%Y%m%d_%H%M%S')
-        key = f"metrics/year={year}/month={month}/day={day}/{timestamp_str}.json"
-
-        # Store as JSON
-        s3_client.put_object(
-            Bucket=bucket,
-            Key=key,
-            Body=json.dumps(metrics),
-            ContentType='application/json'
-        )
-
-        logger.debug(f"Stored metrics in S3: s3://{bucket}/{key}")
-
-    except Exception as e:
-        logger.error(f"Failed to store metrics in S3: {e}")
-        # Don't raise - S3 storage failure shouldn't fail the function
-        # DynamoDB is primary storage for recent data
-
-
 def lambda_handler(event, context):
     """
     Lambda handler for data collection
@@ -256,14 +216,9 @@ def lambda_handler(event, context):
                    f"Grid={enriched_metrics['grid_power']}W, "
                    f"Peak={enriched_metrics['peak_period']}")
 
-        # Store in DynamoDB
+        # Store in DynamoDB (with 1-year retention)
         logger.info("Storing metrics in DynamoDB")
         metrics_mgr.save_metrics(enriched_metrics)
-
-        # Store in S3 for historical analysis
-        if historical_bucket:
-            logger.info("Storing metrics in S3")
-            store_in_s3(enriched_metrics, historical_bucket)
 
         # Check for abnormal conditions
         check_for_alerts(enriched_metrics, cfg, notif_mgr)

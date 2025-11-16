@@ -2,6 +2,12 @@
 
 This guide will get your Power Management System running on AWS in approximately 30 minutes.
 
+## 🎉 **FOREVER FREE** - $0/month
+
+This system runs **completely free on AWS forever**, not just for 12 months. See [FOREVER_FREE.md](FOREVER_FREE.md) for details.
+
+---
+
 ## Prerequisites Checklist
 
 - [ ] AWS Account with admin access
@@ -325,9 +331,13 @@ See main [README.md](README.md) for full documentation.
 
 ## Cost Summary
 
-**Phase 1 Monthly Cost:**
-- **Free Tier (12 months):** $0.00
-- **After Free Tier:** ~$1.50/month
+**Monthly Cost:**
+- **Forever:** $0.00 ✅
+- Uses only AWS always-free tier services
+- 1-year data retention within DynamoDB 25GB free tier
+- No S3 costs, no Athena costs, no surprises
+
+**See [FOREVER_FREE.md](FOREVER_FREE.md) for complete breakdown.**
 
 ---
 

@@ -1,7 +1,7 @@
-.PHONY: help build deploy deploy-guided test clean validate setup-params init-token verify logs tail invoke
+.PHONY: help build deploy deploy-guided test clean validate setup-params init-token verify logs tail invoke report export-json export-csv
 
 help:
-	@echo "Power Management System - AWS Deployment"
+	@echo "Power Management System - AWS Deployment (Forever Free)"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  build          - Build SAM application"
@@ -15,6 +15,9 @@ help:
 	@echo "  invoke         - Manually invoke DataCollector function"
 	@echo "  logs           - View recent logs"
 	@echo "  tail           - Tail logs in real-time"
+	@echo "  report         - Generate weekly analytics report"
+	@echo "  export-json    - Export metrics to JSON (requires START= END= FILE=)"
+	@echo "  export-csv     - Export metrics to CSV (requires START= END= FILE=)"
 	@echo "  clean          - Clean build artifacts"
 
 build:
@@ -79,13 +82,23 @@ check-state:
 		--table-name PowerState-prod \
 		--select COUNT
 
-# S3 operations
-list-s3-data:
-	@BUCKET=$$(aws cloudformation describe-stacks \
-		--stack-name powermgr-prod \
-		--query 'Stacks[0].Outputs[?OutputKey==`HistoricalDataBucketName`].OutputValue' \
-		--output text); \
-	aws s3 ls s3://$$BUCKET/metrics/ --recursive | tail -20
+# Analytics and reporting
+report:
+	python3 scripts/analyze_metrics.py --report --days 7
+
+export-json:
+	@if [ -z "$(START)" ] || [ -z "$(END)" ] || [ -z "$(FILE)" ]; then \
+		echo "Usage: make export-json START=2025-11-01 END=2025-11-30 FILE=data.json"; \
+		exit 1; \
+	fi
+	python3 scripts/analyze_metrics.py --export-json $(FILE) --start-date $(START) --end-date $(END)
+
+export-csv:
+	@if [ -z "$(START)" ] || [ -z "$(END)" ] || [ -z "$(FILE)" ]; then \
+		echo "Usage: make export-csv START=2025-11-01 END=2025-11-30 FILE=data.csv"; \
+		exit 1; \
+	fi
+	python3 scripts/analyze_metrics.py --export-csv $(FILE) --start-date $(START) --end-date $(END)
 
 # CloudWatch metrics
 lambda-stats:

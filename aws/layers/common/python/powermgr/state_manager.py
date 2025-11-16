@@ -233,8 +233,8 @@ class MetricsManager:
                     else:
                         item[key] = value
 
-            # Set TTL for 14 days
-            ttl_timestamp = int((datetime.utcnow() + timedelta(days=14)).timestamp())
+            # Set TTL for 1 year (365 days) - stays within 25GB free tier
+            ttl_timestamp = int((datetime.utcnow() + timedelta(days=365)).timestamp())
             item['ttl'] = ttl_timestamp
 
             self.metrics_table.put_item(Item=item)
@@ -328,8 +328,8 @@ class AnalyticsManager:
                     else:
                         item[key] = value
 
-            # Set TTL for 14 days
-            ttl_timestamp = int((datetime.utcnow() + timedelta(days=14)).timestamp())
+            # Set TTL for 1 year (365 days) - stays within 25GB free tier
+            ttl_timestamp = int((datetime.utcnow() + timedelta(days=365)).timestamp())
             item['ttl'] = ttl_timestamp
 
             self.analytics_table.put_item(Item=item)

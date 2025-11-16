@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Power Management System - Intelligent Battery and Thermostat Control
+Description: Power Management System - Intelligent Battery and Thermostat Control (Forever Free)
 
 Globals:
   Function:
@@ -12,7 +12,6 @@ Globals:
         POWERMETRICS_TABLE: !Ref PowerMetricsTable
         POWERANALYTICS_TABLE: !Ref PowerAnalyticsTable
         POWERSTATE_TABLE: !Ref PowerStateTable
-        HISTORICAL_DATA_BUCKET: !Ref HistoricalDataBucket
         PARAMETER_STORE_PREFIX: /powermgr
     Layers:
       - !Ref CommonLayer
@@ -102,43 +101,6 @@ Resources:
           Value: !Ref Environment
 
   # ===================================
-  # S3 Bucket for Historical Data
-  # ===================================
-
-  HistoricalDataBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub powermgr-historical-${Environment}-${AWS::AccountId}
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      VersioningConfiguration:
-        Status: Enabled
-      LifecycleConfiguration:
-        Rules:
-          - Id: TransitionToIA
-            Status: Enabled
-            Transitions:
-              - TransitionInDays: 90
-                StorageClass: STANDARD_IA
-          - Id: TransitionToGlacier
-            Status: Enabled
-            Transitions:
-              - TransitionInDays: 365
-                StorageClass: GLACIER
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Project
-          Value: PowerManagement
-        - Key: Environment
-          Value: !Ref Environment
-
-  # ===================================
   # Lambda Layers
   # ===================================
 
@@ -171,8 +133,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerMetricsTable
-        - S3CrudPolicy:
-            BucketName: !Ref HistoricalDataBucket
         - SSMParameterReadPolicy:
             ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
@@ -236,114 +196,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/PowerMgr-DataCollector-${Environment}
-      RetentionInDays: 30
-
-  # ===================================
-  # Athena Resources
-  # ===================================
-
-  AthenaWorkGroup:
-    Type: AWS::Athena::WorkGroup
-    Properties:
-      Name: !Sub powermgr-${Environment}
-      Description: WorkGroup for Power Management queries
-      State: ENABLED
-      WorkGroupConfiguration:
-        ResultConfiguration:
-          OutputLocation: !Sub s3://${HistoricalDataBucket}/athena-results/
-        EnforceWorkGroupConfiguration: true
-        PublishCloudWatchMetricsEnabled: true
-      Tags:
-        - Key: Project
-          Value: PowerManagement
-        - Key: Environment
-          Value: !Ref Environment
-
-  AthenaResultsBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub powermgr-athena-results-${Environment}-${AWS::AccountId}
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteOldResults
-            Status: Enabled
-            ExpirationInDays: 30
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Project
-          Value: PowerManagement
-        - Key: Environment
-          Value: !Ref Environment
-
-  # ===================================
-  # Glue Database and Table for Athena
-  # ===================================
-
-  PowerMgmtDatabase:
-    Type: AWS::Glue::Database
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseInput:
-        Name: !Sub powermgmt_${Environment}
-        Description: Power Management historical data
-
-  PowerMetricsGlueTable:
-    Type: AWS::Glue::Table
-    Properties:
-      CatalogId: !Ref AWS::AccountId
-      DatabaseName: !Ref PowerMgmtDatabase
-      TableInput:
-        Name: metrics
-        Description: Historical power metrics data
-        TableType: EXTERNAL_TABLE
-        PartitionKeys:
-          - Name: year
-            Type: string
-          - Name: month
-            Type: string
-          - Name: day
-            Type: string
-        StorageDescriptor:
-          Columns:
-            - Name: timestamp
-              Type: string
-            - Name: battery_percentage
-              Type: double
-            - Name: battery_power
-              Type: double
-            - Name: solar_power
-              Type: double
-            - Name: grid_power
-              Type: double
-            - Name: battery_remaining_kwh
-              Type: double
-            - Name: total_pack_energy_kwh
-              Type: double
-            - Name: grid_status
-              Type: string
-            - Name: battery_is_charging
-              Type: boolean
-            - Name: peak_period
-              Type: string
-            - Name: minutes_until_sunset
-              Type: int
-            - Name: minutes_until_peak_end
-              Type: int
-            - Name: solar_output_factor
-              Type: double
-          Location: !Sub s3://${HistoricalDataBucket}/metrics/
-          InputFormat: org.apache.hadoop.mapred.TextInputFormat
-          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
-          SerdeInfo:
-            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+      RetentionInDays: 7  # Reduced to stay under 5GB free tier
 
 Outputs:
   PowerMetricsTableName:
@@ -364,12 +217,6 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-PowerStateTable
 
-  HistoricalDataBucketName:
-    Description: S3 bucket for historical data storage
-    Value: !Ref HistoricalDataBucket
-    Export:
-      Name: !Sub ${AWS::StackName}-HistoricalDataBucket
-
   NotificationTopicArn:
     Description: SNS topic for notifications
     Value: !Ref NotificationTopic
@@ -381,15 +228,3 @@ Outputs:
     Value: !GetAtt DataCollectorFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-DataCollectorFunction
-
-  AthenaWorkGroupName:
-    Description: Athena WorkGroup for queries
-    Value: !Ref AthenaWorkGroup
-    Export:
-      Name: !Sub ${AWS::StackName}-AthenaWorkGroup
-
-  GlueDatabaseName:
-    Description: Glue Database for Athena queries
-    Value: !Ref PowerMgmtDatabase
-    Export:
-      Name: !Sub ${AWS::StackName}-GlueDatabase

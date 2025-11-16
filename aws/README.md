@@ -2,6 +2,19 @@
 
 This is the AWS serverless implementation of the Power Management System, migrated from Raspberry Pi cronjobs to AWS Lambda with historical data tracking and predictive analytics.
 
+## 🎉 **FOREVER FREE** Architecture
+
+This system is designed to run **$0/month FOREVER** on AWS, not just for 12 months!
+
+- ✅ Uses only AWS **always-free** tier services
+- ✅ 1 year data retention within 25GB DynamoDB free tier
+- ✅ All compute, storage, and logging within free limits
+- ✅ No S3 costs, no Athena costs, no surprises
+
+**See [FOREVER_FREE.md](FOREVER_FREE.md) for complete cost breakdown and monitoring guide.**
+
+---
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
@@ -9,6 +22,7 @@ This is the AWS serverless implementation of the Power Management System, migrat
 - [Phase 1: Foundation Setup](#phase-1-foundation-setup)
 - [Phase 2-4: Future Enhancements](#future-phases)
 - [Cost Analysis](#cost-analysis)
+- [Analytics & Reporting](#analytics--reporting)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -456,29 +470,31 @@ aws cloudwatch get-metric-statistics \
 
 ## Cost Analysis
 
-### Free Tier (First 12 Months)
+### Forever Free Tier ✅
 
-| Service | Usage (Monthly) | Free Tier | Cost |
-|---------|----------------|-----------|------|
-| Lambda Requests | ~35,000 | 1M requests | $0 |
-| Lambda Compute | ~150 GB-sec | 400K GB-sec | $0 |
-| DynamoDB Storage | ~5 GB | 25 GB | $0 |
-| DynamoDB R/W | ~50 RCU/WCU | 25 RCU/WCU | $0 |
-| S3 Storage | ~2 GB/year | 5 GB | $0 |
-| S3 Requests | ~10K PUT | 2K PUT free | ~$0.05 |
-| Athena Scanned | ~5 GB | 1 TB | $0 |
-| EventBridge | ~40 rules | Free | $0 |
-| Parameter Store | ~25 params | 10K params | $0 |
-| SNS Email | ~150/month | 1K emails | $0 |
-| CloudWatch Logs | ~2 GB | 5 GB | $0 |
-| **Total** | | | **~$0/month** |
+This architecture uses **ONLY** AWS services that are free forever, not just for 12 months.
 
-### After Free Tier
+| Service | Usage (Monthly) | Free Tier (Forever) | % Used | Cost |
+|---------|----------------|---------------------|--------|------|
+| Lambda Requests | ~35,000 | 1M requests | 3.5% | **$0** |
+| Lambda Compute | ~150 GB-sec | 400K GB-sec | 0.04% | **$0** |
+| DynamoDB Storage | <500 MB (1 year) | 25 GB | 2% | **$0** |
+| DynamoDB R/W | ~50 units | 25 RCU/WCU | 200% | **$0** |
+| EventBridge | 3 rules | Unlimited | N/A | **$0** |
+| Parameter Store | ~25 params | 10K params | 0.25% | **$0** |
+| SNS Email | ~150/month | 1K emails | 15% | **$0** |
+| CloudWatch Logs | ~0.5 GB | 5 GB | 10% | **$0** |
+| **TOTAL (Forever)** | | | | **$0/month** ✅ |
 
-- Lambda: ~$0.20/month
-- DynamoDB: ~$1.25/month
-- S3: ~$0.10/month
-- **Total: ~$1.50/month**
+### Why $0 Forever?
+
+- ✅ No S3 storage (removed to avoid 12-month limit)
+- ✅ No Athena (DynamoDB queries instead)
+- ✅ 1-year data retention fits in 25GB DynamoDB free tier
+- ✅ CloudWatch logs reduced to 7-day retention
+- ✅ All services have **always-free** tier, not temporary
+
+**See [FOREVER_FREE.md](FOREVER_FREE.md) for detailed analysis.**
 
 ---
 
@@ -529,10 +545,101 @@ aws dynamodb update-continuous-backups \
   --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true
 ```
 
-**Export S3 Data:**
+**Export DynamoDB Data:**
 ```bash
-# Download historical data
-aws s3 sync s3://powermgr-historical-prod-YOUR_ACCOUNT_ID/metrics/ ./backups/metrics/
+# Export metrics to local file
+make export-json START=2025-01-01 END=2025-12-31 FILE=backup-2025.json
+```
+
+---
+
+## Analytics & Reporting
+
+### Local Analytics Tools
+
+The system includes `scripts/analyze_metrics.py` for analyzing DynamoDB data locally (no additional AWS costs).
+
+#### Generate Weekly Report
+
+```bash
+# Via Makefile
+make report
+
+# Or directly
+python3 scripts/analyze_metrics.py --report --days 7
+```
+
+**Sample Output:**
+```
+======================================================================
+POWER MANAGEMENT REPORT - 7 Day Analysis
+Period: 2025-11-09 to 2025-11-16
+======================================================================
+
+SUMMARY:
+  Total data points: 2,016
+  Peak period readings: 420
+  Average battery draw: 2.35 kW
+
+DAILY BREAKDOWN:
+
+  2025-11-09:
+    Battery range: 28.5% - 95.0%
+    Battery depleted: 66.5%
+    Avg solar: 2,450 W
+    Grid events: 0
+
+  2025-11-10:
+    Battery range: 22.0% - 96.0%
+    Battery depleted: 74.0%
+    Avg solar: 1,820 W
+    Grid events: 1
+```
+
+#### Export to JSON/CSV
+
+```bash
+# Export to JSON for analysis
+make export-json START=2025-11-01 END=2025-11-30 FILE=november.json
+
+# Export to CSV for Excel/Google Sheets
+make export-csv START=2025-11-01 END=2025-11-30 FILE=november.csv
+
+# Or use script directly
+python3 scripts/analyze_metrics.py --export-csv november.csv \
+  --start-date 2025-11-01 --end-date 2025-11-30
+```
+
+### Query DynamoDB Directly
+
+```python
+import boto3
+from boto3.dynamodb.conditions import Key
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('PowerMetrics-prod')
+
+# Query specific date
+response = table.query(
+    KeyConditionExpression=Key('metric_date').eq('2025-11-16')
+)
+
+metrics = response['Items']
+```
+
+### Advanced: DynamoDB Export to S3
+
+For deep historical analysis, export to S3 (free operation), analyze with Athena, then delete:
+
+```bash
+# Export table to S3 (free)
+aws dynamodb export-table-to-point-in-time \
+  --table-arn arn:aws:dynamodb:region:account:table/PowerMetrics-prod \
+  --s3-bucket my-temp-analysis-bucket \
+  --export-format DYNAMODB_JSON
+
+# Query with Athena (first 1TB free per month)
+# Remember to delete S3 data after analysis to avoid storage costs
 ```
 
 ---
