@@ -31,6 +31,10 @@ help:
 	@echo "  logs-eod       - View EODStatus logs"
 	@echo "  logs-auth      - View AuthRefresh logs"
 	@echo ""
+	@echo "Phase 4 Functions (Reporting):"
+	@echo "  invoke-weekly  - Invoke WeeklyReport"
+	@echo "  logs-weekly    - View WeeklyReport logs"
+	@echo ""
 	@echo "Analytics & Reporting:"
 	@echo "  report         - Generate weekly analytics report"
 	@echo "  export-json    - Export metrics to JSON (START= END= FILE=)"
@@ -161,6 +165,20 @@ tail-eod:
 
 tail-auth:
 	aws logs tail /aws/lambda/PowerMgr-AuthRefresh-prod --follow
+
+# Phase 4 Lambda functions
+invoke-weekly:
+	aws lambda invoke \
+		--function-name PowerMgr-WeeklyReport-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
+logs-weekly:
+	aws logs tail /aws/lambda/PowerMgr-WeeklyReport-prod --since 2h
+
+tail-weekly:
+	aws logs tail /aws/lambda/PowerMgr-WeeklyReport-prod --follow
 
 test:
 	pytest tests/ -v

@@ -431,6 +431,49 @@ Resources:
         Project: PowerManagement
         Environment: !Ref Environment
 
+  WeeklyReportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-WeeklyReport-${Environment}
+      CodeUri: functions/weekly_report/
+      Handler: handler.lambda_handler
+      Description: Generates comprehensive weekly performance and cost savings report
+      Timeout: 300  # 5 minutes for data processing
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PowerMetricsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PowerAnalyticsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PowerStateTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run weekly on Sunday night at 11pm (adjust for your timezone)
+        WeeklyReportSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 4 ? * SUN *)  # 11pm EST Sunday (04:00 UTC Monday)
+            Description: Generate and send weekly performance report
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
   # ===================================
   # SNS Topic for Notifications
   # ===================================
@@ -490,6 +533,12 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/PowerMgr-AuthRefresh-${Environment}
+      RetentionInDays: 7
+
+  WeeklyReportLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-WeeklyReport-${Environment}
       RetentionInDays: 7
 
 Outputs:
@@ -558,3 +607,9 @@ Outputs:
     Value: !GetAtt AuthRefreshFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-AuthRefreshFunction
+
+  WeeklyReportFunctionArn:
+    Description: ARN of the Weekly Report Lambda function
+    Value: !GetAtt WeeklyReportFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-WeeklyReportFunction

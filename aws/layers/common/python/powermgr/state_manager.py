@@ -295,6 +295,38 @@ class MetricsManager:
             logger.error(f"Failed to query metrics: {e}")
             raise
 
+    def query_metrics_by_date(self, date_str: str) -> List[Dict[str, Any]]:
+        """
+        Query all metrics for a specific date
+
+        Args:
+            date_str: Date in YYYY-MM-DD format
+
+        Returns:
+            List of metrics dictionaries for that date
+        """
+        try:
+            response = self.metrics_table.query(
+                KeyConditionExpression=Key('metric_date').eq(date_str)
+            )
+
+            # Convert Decimals back to floats
+            metrics = []
+            for item in response.get('Items', []):
+                metric = {}
+                for key, value in item.items():
+                    if isinstance(value, Decimal):
+                        metric[key] = float(value)
+                    else:
+                        metric[key] = value
+                metrics.append(metric)
+
+            return metrics
+
+        except ClientError as e:
+            logger.error(f"Failed to query metrics for {date_str}: {e}")
+            raise
+
 
 class AnalyticsManager:
     """Manages analytics results in DynamoDB"""
@@ -372,4 +404,36 @@ class AnalyticsManager:
 
         except ClientError as e:
             logger.error(f"Failed to get latest analytics: {e}")
+            raise
+
+    def query_analytics_by_date(self, date_str: str) -> List[Dict[str, Any]]:
+        """
+        Query all analytics for a specific date
+
+        Args:
+            date_str: Date in YYYY-MM-DD format
+
+        Returns:
+            List of analytics dictionaries for that date
+        """
+        try:
+            response = self.analytics_table.query(
+                KeyConditionExpression=Key('analysis_date').eq(date_str)
+            )
+
+            # Convert Decimals back to floats
+            analytics_list = []
+            for item in response.get('Items', []):
+                analytics = {}
+                for key, value in item.items():
+                    if isinstance(value, Decimal):
+                        analytics[key] = float(value)
+                    else:
+                        analytics[key] = value
+                analytics_list.append(analytics)
+
+            return analytics_list
+
+        except ClientError as e:
+            logger.error(f"Failed to query analytics for {date_str}: {e}")
             raise
