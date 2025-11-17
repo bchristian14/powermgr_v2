@@ -146,6 +146,20 @@ class ParameterStoreSetup:
             'Dates with off-peak pricing (YYYY-MM-DD format)'
         )
 
+        # Adjustment mode configuration
+        print("\nAdjustment Mode Configuration:")
+        adjustment_mode = {
+            'mode': 'fixed',  # 'fixed' or 'predictive'
+            'target_battery_minimum': 20,  # Target minimum battery % at peak end
+            'enable_predictive_override': False  # Allow predictive to override fixed thresholds
+        }
+        self.put_parameter(
+            'config/adjustment_mode',
+            json.dumps(adjustment_mode),
+            'String',
+            'Thermostat adjustment mode: fixed (threshold-based) or predictive (analytics-based)'
+        )
+
         # Notification emails
         print("\nNotification Configuration:")
         notification_emails = []  # User must provide

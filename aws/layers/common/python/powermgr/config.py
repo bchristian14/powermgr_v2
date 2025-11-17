@@ -189,6 +189,14 @@ class Config:
         # Token refresh threshold
         self.token_refresh_threshold = 15 * 24 * 60 * 60  # 15 days in seconds
 
+        # Adjustment mode configuration
+        adjustment_mode_json = params.get('config/adjustment_mode',
+            '{"mode": "fixed", "target_battery_minimum": 20, "enable_predictive_override": false}')
+        adjustment_mode = json.loads(adjustment_mode_json)
+        self.adjustment_mode = adjustment_mode.get('mode', 'fixed')  # 'fixed' or 'predictive'
+        self.target_battery_minimum = adjustment_mode.get('target_battery_minimum', 20)
+        self.enable_predictive_override = adjustment_mode.get('enable_predictive_override', False)
+
     def get_credentials(self, service: str) -> Dict[str, str]:
         """
         Get credentials for a specific service
