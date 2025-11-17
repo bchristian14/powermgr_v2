@@ -225,6 +225,212 @@ Resources:
         Project: PowerManagement
         Environment: !Ref Environment
 
+  ThermostatControllerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-ThermostatController-${Environment}
+      CodeUri: functions/thermostat_controller/
+      Handler: handler.lambda_handler
+      Description: Adjusts thermostat temperatures based on battery levels
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerAnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerStateTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run every 15 minutes during peak hours
+        SummerPeakControl:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 14-19 ? 5-10 MON-FRI *)
+            Description: Check and adjust thermostats during summer peak
+            Enabled: true
+        WinterMorningPeakControl:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 5-8 ? 1-4,11-12 MON-FRI *)
+            Description: Check and adjust thermostats during winter morning peak
+            Enabled: true
+        WinterEveningPeakControl:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 17-20 ? 1-4,11-12 MON-FRI *)
+            Description: Check and adjust thermostats during winter evening peak
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
+  PeakManagerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-PeakManager-${Environment}
+      CodeUri: functions/peak_manager/
+      Handler: handler.lambda_handler
+      Description: Manages Powerwall backup reserve based on peak/off-peak periods
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerStateTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run every 10 minutes throughout the day
+        PeakCheckSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/10 * * * ? *)
+            Description: Check and adjust Powerwall reserve every 10 minutes
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
+  PrecoolCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-PrecoolCheck-${Environment}
+      CodeUri: functions/precool_check/
+      Handler: handler.lambda_handler
+      Description: Checks weather forecast and initiates precooling if needed
+      Timeout: 120  # Increased for weather API call
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerStateTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run daily at 7am local time (adjust for your timezone)
+        MorningPrecoolCheck:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 12 * * ? *)  # 7am EST (12:00 UTC)
+            Description: Check weather and battery for precooling decision
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
+  EODStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-EODStatus-${Environment}
+      CodeUri: functions/eod_status/
+      Handler: handler.lambda_handler
+      Description: Sends end-of-day status report with battery metrics
+      Timeout: 420  # 7 minutes (includes 5-minute sleep for follow-up)
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerStateTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run daily at 9pm local time (adjust for your timezone)
+        EveningStatusReport:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 2 * * ? *)  # 9pm EST (02:00 UTC next day)
+            Description: Send end-of-day status email
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
+  AuthRefreshFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-AuthRefresh-${Environment}
+      CodeUri: functions/auth_refresh/
+      Handler: handler.lambda_handler
+      Description: Monitors Tesla token expiration and refreshes when needed
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerStateTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run nightly at 2am local time (adjust for your timezone)
+        NightlyAuthCheck:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 7 * * ? *)  # 2am EST (07:00 UTC)
+            Description: Check and refresh Tesla token if needed
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
   # ===================================
   # SNS Topic for Notifications
   # ===================================
@@ -255,6 +461,36 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/PowerMgr-Analytics-${Environment}
       RetentionInDays: 7  # Reduced to stay under 5GB free tier
+
+  ThermostatControllerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-ThermostatController-${Environment}
+      RetentionInDays: 7
+
+  PeakManagerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-PeakManager-${Environment}
+      RetentionInDays: 7
+
+  PrecoolCheckLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-PrecoolCheck-${Environment}
+      RetentionInDays: 7
+
+  EODStatusLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-EODStatus-${Environment}
+      RetentionInDays: 7
+
+  AuthRefreshLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-AuthRefresh-${Environment}
+      RetentionInDays: 7
 
 Outputs:
   PowerMetricsTableName:
@@ -292,3 +528,33 @@ Outputs:
     Value: !GetAtt AnalyticsFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-AnalyticsFunction
+
+  ThermostatControllerFunctionArn:
+    Description: ARN of the Thermostat Controller Lambda function
+    Value: !GetAtt ThermostatControllerFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ThermostatControllerFunction
+
+  PeakManagerFunctionArn:
+    Description: ARN of the Peak Manager Lambda function
+    Value: !GetAtt PeakManagerFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PeakManagerFunction
+
+  PrecoolCheckFunctionArn:
+    Description: ARN of the Precool Check Lambda function
+    Value: !GetAtt PrecoolCheckFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PrecoolCheckFunction
+
+  EODStatusFunctionArn:
+    Description: ARN of the EOD Status Lambda function
+    Value: !GetAtt EODStatusFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-EODStatusFunction
+
+  AuthRefreshFunctionArn:
+    Description: ARN of the Auth Refresh Lambda function
+    Value: !GetAtt AuthRefreshFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-AuthRefreshFunction

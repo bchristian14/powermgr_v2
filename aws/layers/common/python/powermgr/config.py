@@ -197,6 +197,16 @@ class Config:
         self.target_battery_minimum = adjustment_mode.get('target_battery_minimum', 20)
         self.enable_predictive_override = adjustment_mode.get('enable_predictive_override', False)
 
+        # Load credentials for services (cached from params)
+        # These are loaded on-demand in get_credentials(), but we can also set commonly used ones
+        honeywell_creds = params.get('secrets/honeywell/username', ''), params.get('secrets/honeywell/password', '')
+        openweather_key = params.get('secrets/openweather/api_key', '')
+
+        # Set as properties for easy access (will be empty string if not found)
+        self.honeywell_username = honeywell_creds[0]
+        self.honeywell_password = honeywell_creds[1]
+        self.openweather_api_key = openweather_key
+
     def get_credentials(self, service: str) -> Dict[str, str]:
         """
         Get credentials for a specific service

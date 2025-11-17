@@ -3,7 +3,7 @@
 help:
 	@echo "Power Management System - AWS Deployment (Forever Free)"
 	@echo ""
-	@echo "Available targets:"
+	@echo "Setup & Deployment:"
 	@echo "  build          - Build SAM application"
 	@echo "  deploy         - Deploy to AWS (uses samconfig.toml)"
 	@echo "  deploy-guided  - Deploy with guided prompts"
@@ -12,16 +12,34 @@ help:
 	@echo "  verify         - Verify Parameter Store configuration"
 	@echo "  test           - Run unit tests"
 	@echo "  validate       - Validate SAM template"
-	@echo "  invoke         - Manually invoke DataCollector function"
-	@echo "  invoke-analytics - Manually invoke Analytics function"
-	@echo "  logs           - View recent DataCollector logs"
-	@echo "  logs-analytics - View recent Analytics logs"
-	@echo "  tail           - Tail DataCollector logs in real-time"
-	@echo "  tail-analytics - Tail Analytics logs in real-time"
+	@echo ""
+	@echo "Phase 1 & 2 Functions (Data Collection & Analytics):"
+	@echo "  invoke         - Manually invoke DataCollector"
+	@echo "  invoke-analytics - Manually invoke Analytics"
+	@echo "  logs           - View DataCollector logs"
+	@echo "  logs-analytics - View Analytics logs"
+	@echo ""
+	@echo "Phase 3 Functions (Control & Management):"
+	@echo "  invoke-thermostat - Invoke ThermostatController"
+	@echo "  invoke-peak    - Invoke PeakManager"
+	@echo "  invoke-precool - Invoke PrecoolCheck"
+	@echo "  invoke-eod     - Invoke EODStatus"
+	@echo "  invoke-auth    - Invoke AuthRefresh"
+	@echo "  logs-thermostat - View ThermostatController logs"
+	@echo "  logs-peak      - View PeakManager logs"
+	@echo "  logs-precool   - View PrecoolCheck logs"
+	@echo "  logs-eod       - View EODStatus logs"
+	@echo "  logs-auth      - View AuthRefresh logs"
+	@echo ""
+	@echo "Analytics & Reporting:"
 	@echo "  report         - Generate weekly analytics report"
-	@echo "  export-json    - Export metrics to JSON (requires START= END= FILE=)"
-	@echo "  export-csv     - Export metrics to CSV (requires START= END= FILE=)"
+	@echo "  export-json    - Export metrics to JSON (START= END= FILE=)"
+	@echo "  export-csv     - Export metrics to CSV (START= END= FILE=)"
+	@echo ""
+	@echo "Utilities:"
 	@echo "  clean          - Clean build artifacts"
+	@echo "  stack-status   - Check CloudFormation stack status"
+	@echo "  stack-outputs  - View stack outputs"
 
 build:
 	sam build
@@ -77,6 +95,72 @@ tail:
 
 tail-analytics:
 	aws logs tail /aws/lambda/PowerMgr-Analytics-prod --follow
+
+# Phase 3 Lambda functions
+invoke-thermostat:
+	aws lambda invoke \
+		--function-name PowerMgr-ThermostatController-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
+invoke-peak:
+	aws lambda invoke \
+		--function-name PowerMgr-PeakManager-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
+invoke-precool:
+	aws lambda invoke \
+		--function-name PowerMgr-PrecoolCheck-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
+invoke-eod:
+	aws lambda invoke \
+		--function-name PowerMgr-EODStatus-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
+invoke-auth:
+	aws lambda invoke \
+		--function-name PowerMgr-AuthRefresh-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
+logs-thermostat:
+	aws logs tail /aws/lambda/PowerMgr-ThermostatController-prod --since 2h
+
+logs-peak:
+	aws logs tail /aws/lambda/PowerMgr-PeakManager-prod --since 2h
+
+logs-precool:
+	aws logs tail /aws/lambda/PowerMgr-PrecoolCheck-prod --since 2h
+
+logs-eod:
+	aws logs tail /aws/lambda/PowerMgr-EODStatus-prod --since 2h
+
+logs-auth:
+	aws logs tail /aws/lambda/PowerMgr-AuthRefresh-prod --since 2h
+
+tail-thermostat:
+	aws logs tail /aws/lambda/PowerMgr-ThermostatController-prod --follow
+
+tail-peak:
+	aws logs tail /aws/lambda/PowerMgr-PeakManager-prod --follow
+
+tail-precool:
+	aws logs tail /aws/lambda/PowerMgr-PrecoolCheck-prod --follow
+
+tail-eod:
+	aws logs tail /aws/lambda/PowerMgr-EODStatus-prod --follow
+
+tail-auth:
+	aws logs tail /aws/lambda/PowerMgr-AuthRefresh-prod --follow
 
 test:
 	pytest tests/ -v
