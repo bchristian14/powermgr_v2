@@ -173,6 +173,58 @@ Resources:
         Project: PowerManagement
         Environment: !Ref Environment
 
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub PowerMgr-Analytics-${Environment}
+      CodeUri: functions/analytics/
+      Handler: handler.lambda_handler
+      Description: Calculates battery depletion rates and projects battery levels
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerMetricsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PowerAnalyticsTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ${AWS::StackName}/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        # Run every 15 minutes during peak hours
+        SummerPeakAnalytics:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 14-19 ? 5-10 MON-FRI *)
+            Description: Run analytics every 15 min during summer peak
+            Enabled: true
+        WinterMorningPeakAnalytics:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 5-8 ? 1-4,11-12 MON-FRI *)
+            Description: Run analytics every 15 min during winter morning peak
+            Enabled: true
+        WinterEveningPeakAnalytics:
+          Type: Schedule
+          Properties:
+            Schedule: cron(*/15 17-20 ? 1-4,11-12 MON-FRI *)
+            Description: Run analytics every 15 min during winter evening peak
+            Enabled: true
+      Tags:
+        Project: PowerManagement
+        Environment: !Ref Environment
+
   # ===================================
   # SNS Topic for Notifications
   # ===================================
@@ -196,6 +248,12 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/PowerMgr-DataCollector-${Environment}
+      RetentionInDays: 7  # Reduced to stay under 5GB free tier
+
+  AnalyticsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/PowerMgr-Analytics-${Environment}
       RetentionInDays: 7  # Reduced to stay under 5GB free tier
 
 Outputs:
@@ -228,3 +286,9 @@ Outputs:
     Value: !GetAtt DataCollectorFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-DataCollectorFunction
+
+  AnalyticsFunctionArn:
+    Description: ARN of the Analytics Lambda function
+    Value: !GetAtt AnalyticsFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-AnalyticsFunction

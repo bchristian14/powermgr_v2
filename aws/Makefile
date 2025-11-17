@@ -13,8 +13,11 @@ help:
 	@echo "  test           - Run unit tests"
 	@echo "  validate       - Validate SAM template"
 	@echo "  invoke         - Manually invoke DataCollector function"
-	@echo "  logs           - View recent logs"
-	@echo "  tail           - Tail logs in real-time"
+	@echo "  invoke-analytics - Manually invoke Analytics function"
+	@echo "  logs           - View recent DataCollector logs"
+	@echo "  logs-analytics - View recent Analytics logs"
+	@echo "  tail           - Tail DataCollector logs in real-time"
+	@echo "  tail-analytics - Tail Analytics logs in real-time"
 	@echo "  report         - Generate weekly analytics report"
 	@echo "  export-json    - Export metrics to JSON (requires START= END= FILE=)"
 	@echo "  export-csv     - Export metrics to CSV (requires START= END= FILE=)"
@@ -56,11 +59,24 @@ invoke:
 		response.json
 	@cat response.json | python3 -m json.tool
 
+invoke-analytics:
+	aws lambda invoke \
+		--function-name PowerMgr-Analytics-prod \
+		--log-type Tail \
+		response.json
+	@cat response.json | python3 -m json.tool
+
 logs:
 	aws logs tail /aws/lambda/PowerMgr-DataCollector-prod --since 2h
 
+logs-analytics:
+	aws logs tail /aws/lambda/PowerMgr-Analytics-prod --since 2h
+
 tail:
 	aws logs tail /aws/lambda/PowerMgr-DataCollector-prod --follow
+
+tail-analytics:
+	aws logs tail /aws/lambda/PowerMgr-Analytics-prod --follow
 
 test:
 	pytest tests/ -v
