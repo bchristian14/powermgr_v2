@@ -151,6 +151,12 @@ class TeslaClient:
 
         payload = {"backup_reserve_percent": reserve_percent}
 
+        # DRY-RUN MODE: Log but don't execute
+        if self.config.dry_run:
+            logger.warning(f"[DRY-RUN] Would set backup reserve to {reserve_percent}% (skipped)")
+            logger.info(f"[DRY-RUN] Payload would be: {payload}")
+            return True
+
         logger.info(f"Setting backup reserve to {reserve_percent}%")
 
         try:

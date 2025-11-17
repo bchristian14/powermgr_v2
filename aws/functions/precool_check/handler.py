@@ -99,6 +99,12 @@ def lambda_handler(event, context):
         # Initialize clients
         cfg, tesla, honeywell, notif_mgr = init_clients()
 
+        # Check if in dry-run mode
+        if cfg.dry_run:
+            logger.warning("=" * 60)
+            logger.warning("DRY-RUN MODE ENABLED - No actual precool actions will be taken")
+            logger.warning("=" * 60)
+
         # Get current battery level
         logger.info("Getting current battery level from Tesla")
         status = tesla.get_live_status()

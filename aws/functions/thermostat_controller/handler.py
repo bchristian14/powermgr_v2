@@ -67,6 +67,12 @@ def lambda_handler(event, context):
         # Initialize clients
         cfg, tesla, honeywell, state_mgr, analytics_mgr, adj_engine, notif_mgr = init_clients()
 
+        # Check if in dry-run mode
+        if cfg.dry_run:
+            logger.warning("=" * 60)
+            logger.warning("DRY-RUN MODE ENABLED - No actual thermostat changes will be made")
+            logger.warning("=" * 60)
+
         # Get current battery status from Tesla
         logger.info("Getting current battery status from Tesla")
         status = tesla.get_live_status()

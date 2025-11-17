@@ -207,6 +207,10 @@ class Config:
         self.honeywell_password = honeywell_creds[1]
         self.openweather_api_key = openweather_key
 
+        # Dry-run mode (prevents actual control actions, only logs what would happen)
+        dry_run_str = params.get('config/dry_run', 'false').lower()
+        self.dry_run = dry_run_str in ['true', '1', 'yes']
+
     def get_credentials(self, service: str) -> Dict[str, str]:
         """
         Get credentials for a specific service

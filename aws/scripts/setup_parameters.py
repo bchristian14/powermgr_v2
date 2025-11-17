@@ -160,6 +160,15 @@ class ParameterStoreSetup:
             'Thermostat adjustment mode: fixed (threshold-based) or predictive (analytics-based)'
         )
 
+        # Dry-run mode (testing without actual control)
+        print("\nDry-Run Mode Configuration:")
+        self.put_parameter(
+            'config/dry_run',
+            'false',  # Set to 'true' for testing without actual control actions
+            'String',
+            'Dry-run mode: true to log actions without executing, false for normal operation'
+        )
+
         # Notification emails
         print("\nNotification Configuration:")
         notification_emails = []  # User must provide

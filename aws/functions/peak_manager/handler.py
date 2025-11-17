@@ -137,6 +137,12 @@ def lambda_handler(event, context):
         # Initialize clients
         cfg, tesla, notif_mgr = init_clients()
 
+        # Check if in dry-run mode
+        if cfg.dry_run:
+            logger.warning("=" * 60)
+            logger.warning("DRY-RUN MODE ENABLED - No actual reserve changes will be made")
+            logger.warning("=" * 60)
+
         # Get current time
         current_time = datetime.utcnow()
 

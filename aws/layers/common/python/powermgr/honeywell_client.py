@@ -133,6 +133,12 @@ class HoneywellClient:
             'DeviceID': device_id,
         }
 
+        # DRY-RUN MODE: Log but don't execute
+        if self.config.dry_run:
+            logger.warning(f"[DRY-RUN] Would set device {device_id} to {new_temp}°F (skipped)")
+            logger.info(f"[DRY-RUN] Data would be: {data}")
+            return new_temp  # Return requested temp as if it worked
+
         try:
             logger.info(f"Setting device {device_id} to {new_temp}°F")
 
