@@ -139,7 +139,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
       Events:
         # Peak hours - collect every 5 minutes
         SummerPeakSchedule:
@@ -192,7 +192,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
@@ -242,7 +242,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
@@ -290,7 +290,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
@@ -327,7 +327,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
@@ -364,7 +364,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
@@ -400,7 +400,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
@@ -441,7 +441,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
                 - ssm:GetParametersByPath
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr/*
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/powermgr*
             - Effect: Allow
               Action:
                 - sns:Publish
