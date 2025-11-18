@@ -5,7 +5,7 @@ Description: Power Management System - Intelligent Battery and Thermostat Contro
 Globals:
   Function:
     Timeout: 60
-    Runtime: python3.11
+    Runtime: python3.12
     MemorySize: 256
     Environment:
       Variables:
@@ -111,10 +111,10 @@ Resources:
       Description: Common utilities for Power Management System
       ContentUri: layers/common/
       CompatibleRuntimes:
-        - python3.11
+        - python3.12
       RetentionPolicy: Retain
     Metadata:
-      BuildMethod: python3.11
+      BuildMethod: python3.12
 
   # ===================================
   # Lambda Functions
