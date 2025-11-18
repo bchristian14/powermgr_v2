@@ -133,8 +133,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerMetricsTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -188,8 +186,6 @@ Resources:
             TableName: !Ref PowerMetricsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerAnalyticsTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -240,8 +236,6 @@ Resources:
             TableName: !Ref PowerAnalyticsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerStateTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -290,8 +284,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerStateTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -329,8 +321,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerStateTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -368,8 +358,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerStateTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -406,8 +394,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PowerStateTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
@@ -449,8 +435,6 @@ Resources:
             TableName: !Ref PowerAnalyticsTable
         - DynamoDBReadPolicy:
             TableName: !Ref PowerStateTable
-        - SSMParameterReadPolicy:
-            ParameterName: !Sub ${AWS::StackName}/*
         - Statement:
             - Effect: Allow
               Action:
