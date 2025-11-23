@@ -1,0 +1,18 @@
+# Development and deployment requirements
+# Install with: pip install -r requirements-dev.txt
+
+# AWS SDK
+boto3>=1.28.0
+botocore>=1.31.0
+
+# AWS SAM CLI dependencies
+aws-sam-cli>=1.100.0
+
+# Testing
+pytest>=7.4.0
+moto>=4.2.0  # AWS service mocking for tests
+
+# Code quality
+black>=23.0.0
+flake8>=6.1.0
+mypy>=1.5.0

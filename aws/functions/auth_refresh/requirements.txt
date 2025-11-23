@@ -1,0 +1,1 @@
+# No additional dependencies - uses Lambda Layer

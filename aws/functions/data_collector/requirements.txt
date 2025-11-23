@@ -1,0 +1,2 @@
+# All dependencies are provided by the Lambda Layer
+# This file is kept empty but required by SAM
